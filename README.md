@@ -136,7 +136,17 @@ Every time Claude Code makes an API call, it sends your entire conversation hist
 
 ### Cost Calculation
 
-Costs are estimated using current Anthropic API pricing (per million tokens):
+#### What does "Est. Cost" mean?
+
+The **Est. Cost (USD)** shown on the dashboard is an **estimate** of what your usage would cost at Anthropic's public API pricing. This is useful to understand the value of the compute you're consuming.
+
+> **Important: This is NOT your actual bill.**
+> - If you're on **Claude Pro** ($20/month) or **Claude Max** ($100/$200/month), you pay a flat subscription — not per-token. The estimated cost helps you understand how much value you're getting from your subscription.
+> - If you're using Claude Code with an **API key**, then this estimate closely reflects your actual charges on the [Anthropic billing dashboard](https://console.anthropic.com/).
+
+#### Pricing table
+
+Costs are calculated using Anthropic's published API pricing (per million tokens):
 
 | Model | Input | Output | Cache Write | Cache Read |
 |---|---|---|---|---|
@@ -144,13 +154,58 @@ Costs are estimated using current Anthropic API pricing (per million tokens):
 | **Sonnet 4** | $3.00 | $15.00 | $3.75 | $0.30 |
 | **Haiku 4** | $0.80 | $4.00 | $1.00 | $0.08 |
 
-The per-record cost formula (e.g., for Opus):
+> Pricing as of early 2026. If Anthropic updates pricing, edit the rates in [`Models/UsageRecord.cs`](Models/UsageRecord.cs).
+
+#### How cost is calculated per API call
+
+Each API call in the JSONL file contains four token counts. The app multiplies each by the model's rate and sums them:
 
 ```
-Cost = (input_tokens × $15 + output_tokens × $75 + cache_creation × $18.75 + cache_read × $1.50) / 1,000,000
+Cost = (input_tokens × input_rate + output_tokens × output_rate
+      + cache_creation_tokens × cache_write_rate
+      + cache_read_tokens × cache_read_rate) / 1,000,000
 ```
 
-> Pricing may change. Update the rates in [`Models/UsageRecord.cs`](Models/UsageRecord.cs) if needed.
+#### Worked example
+
+A single Opus API call with:
+- `input_tokens`: 50
+- `output_tokens`: 350
+- `cache_creation_input_tokens`: 5,000
+- `cache_read_input_tokens`: 150,000
+
+```
+Input cost:          50 × $15.00   = $0.000750
+Output cost:        350 × $75.00   = $0.026250
+Cache write cost: 5,000 × $18.75   = $0.093750
+Cache read cost: 150,000 × $1.50   = $0.225000
+                                      ─────────
+Total for this call:                  $0.345750
+```
+
+Notice that **cache read is 65% of the cost** here, even though it's the cheapest rate — because the volume is so high.
+
+#### How totals are aggregated
+
+| Dashboard metric | How it's calculated |
+|---|---|
+| **Est. Cost** (top card) | Sum of per-call costs across all API calls in the selected date range |
+| **Daily Cost** (bar chart) | Per-call costs grouped by date |
+| **Cost by Model** (pie chart) | Per-call costs grouped by model name |
+| **Session Est. Cost** (sessions tab) | Per-call costs grouped by session ID |
+
+#### Cost breakdown by what drives spending
+
+In a typical heavy-usage scenario, here's where the money goes:
+
+| Cost Driver | % of Total Cost | Why |
+|---|---|---|
+| **Output tokens** | ~40-50% | Claude's responses — most expensive rate ($75/M for Opus) |
+| **Cache read tokens** | ~30-40% | Cheap per-token ($1.50/M) but enormous volume |
+| **Cache creation tokens** | ~15-20% | Writing new context into cache |
+| **Input tokens** | <1% | Your actual prompts are tiny compared to context |
+
+The takeaway: **output tokens are the biggest cost driver** despite being a small fraction of total token count, because they're priced 50x higher than cache reads.
 
 ### Real-Time Updates
 
