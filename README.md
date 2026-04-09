@@ -107,6 +107,33 @@ Each line is a JSON object. The app looks for `"type": "assistant"` messages tha
 }
 ```
 
+### Understanding Token Counts
+
+> **Why does "Total Tokens" look so high?** This is normal. Don't panic.
+
+The dashboard shows **total tokens across all four categories**:
+
+```
+Total Tokens = Input + Output + Cache Read + Cache Creation
+```
+
+In practice, **cache read tokens make up ~95% of the total**. Here's a real-world example:
+
+| Token Type | Count | % of Total | What It Means |
+|---|---|---|---|
+| **Cache Read** | 1,322M | 95.7% | Conversation context re-read from cache on every API call |
+| **Cache Creation** | 53M | 3.9% | New context written into cache |
+| **Output** | 4.2M | 0.3% | Claude's actual responses |
+| **Input** | 1.2M | 0.1% | Your prompts/messages |
+
+**Why are cache reads so large?**
+
+Every time Claude Code makes an API call, it sends your entire conversation history as context. Anthropic caches this context so it doesn't need to be re-processed from scratch each time. A typical Claude Code session has 100K-500K tokens of context, and with thousands of API calls, the cache read count grows into the hundreds of millions.
+
+**The key insight: cache reads are very cheap.** For Opus, cache reads cost **$1.50 per million tokens** — that's 10x cheaper than regular input ($15/M) and 50x cheaper than output ($75/M). So even though the raw token count looks enormous, the actual cost is reasonable.
+
+**Example:** 1,322M cache read tokens on Opus = ~$1,983. The same volume as regular input would cost $19,833.
+
 ### Cost Calculation
 
 Costs are estimated using current Anthropic API pricing (per million tokens):
@@ -116,6 +143,12 @@ Costs are estimated using current Anthropic API pricing (per million tokens):
 | **Opus 4** | $15.00 | $75.00 | $18.75 | $1.50 |
 | **Sonnet 4** | $3.00 | $15.00 | $3.75 | $0.30 |
 | **Haiku 4** | $0.80 | $4.00 | $1.00 | $0.08 |
+
+The per-record cost formula (e.g., for Opus):
+
+```
+Cost = (input_tokens × $15 + output_tokens × $75 + cache_creation × $18.75 + cache_read × $1.50) / 1,000,000
+```
 
 > Pricing may change. Update the rates in [`Models/UsageRecord.cs`](Models/UsageRecord.cs) if needed.
 
