@@ -8,6 +8,22 @@ A Windows desktop dashboard that tracks your [Claude Code](https://docs.anthropi
 
 ![Claude Usage Monitor Dashboard](screenshot.png)
 
+## Download (No Setup Required)
+
+**Don't want to build from source?** Download the pre-built executable — no .NET installation needed:
+
+[**Download ClaudeUsageMonitor v1.0.0 (Windows x64)**](https://github.com/vaibhavPH/ClaudeUsageMonitor/releases/download/v1.0.0/ClaudeUsageMonitor-v1.0.0-win-x64.zip)
+
+1. Download and extract the zip
+2. Double-click `ClaudeUsageMonitor.exe`
+3. Done — the dashboard will show your Claude Code usage
+
+> **Requirements:** Windows 10+ (x64) and [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed.
+
+See all releases: [GitHub Releases](https://github.com/vaibhavPH/ClaudeUsageMonitor/releases)
+
+---
+
 ## What It Does
 
 Claude Code stores session data as JSONL files in `~/.claude/projects/`. This app parses those files and gives you a live dashboard showing:
