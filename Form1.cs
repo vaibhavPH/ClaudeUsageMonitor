@@ -327,12 +327,35 @@ public partial class Form1 : Form
         };
     }
 
+    private static Icon CreateAppIcon()
+    {
+        using var bmp = new Bitmap(32, 32);
+        using var g = Graphics.FromImage(bmp);
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+
+        // Accent-colored rounded background
+        using var bgBrush = new SolidBrush(Color.FromArgb(88, 101, 242));
+        g.FillEllipse(bgBrush, 1, 1, 30, 30);
+
+        // "C" letter in white
+        using var font = new Font("Segoe UI", 18f, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var textBrush = new SolidBrush(Color.White);
+        var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+        g.DrawString("C", font, textBrush, new RectangleF(0, 0, 32, 32), sf);
+
+        return Icon.FromHandle(bmp.GetHicon());
+    }
+
     private void SetupTrayIcon()
     {
+        var appIcon = CreateAppIcon();
+        Icon = appIcon; // Also set the form title bar icon
+
         _trayIcon = new NotifyIcon
         {
             Text = "Claude Usage Monitor",
-            Icon = SystemIcons.Application,
+            Icon = appIcon,
             Visible = true
         };
 
