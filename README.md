@@ -6,6 +6,8 @@ A Windows desktop dashboard that tracks your [Claude Code](https://docs.anthropi
 ![Windows](https://img.shields.io/badge/Windows_10+-0078D6?style=flat&logo=windows&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+![Claude Usage Monitor Dashboard](screenshot.png)
+
 ## What It Does
 
 Claude Code stores session data as JSONL files in `~/.claude/projects/`. This app parses those files and gives you a live dashboard showing:

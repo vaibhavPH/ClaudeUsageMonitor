@@ -6,4 +6,5 @@ obj/
 .vs/
 *.DotSettings.user
 console.txt
-*.png
+Startuperror*.png
+console.txt
