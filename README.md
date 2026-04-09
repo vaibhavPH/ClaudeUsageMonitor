@@ -134,6 +134,58 @@ Every time Claude Code makes an API call, it sends your entire conversation hist
 
 **Example:** 1,322M cache read tokens on Opus = ~$1,983. The same volume as regular input would cost $19,833.
 
+### Understanding API Calls
+
+The **API Calls** number on the dashboard counts how many times Claude Code contacted the Claude API. This is **not** the number of messages you typed — it's usually much higher. Here's why.
+
+#### What triggers an API call?
+
+When you use Claude Code, a single interaction from you can trigger **multiple** API calls behind the scenes:
+
+| Your Action | What Happens Behind the Scenes | API Calls |
+|---|---|---|
+| You type a message / ask a question | Claude Code sends your message + full conversation history to Claude | **1** |
+| Claude decides to read a file | Claude calls the Read tool, gets the result, then sends it back to Claude for processing | **+1** |
+| Claude decides to edit a file | Claude calls the Edit tool, gets confirmation, sends it back | **+1** |
+| Claude runs a terminal command | Claude calls the Bash tool, gets output, sends it back | **+1** |
+| Claude searches for files | Claude calls Grep/Glob, gets results, sends them back | **+1** |
+| Claude uses any other tool | Same pattern — each tool use is a round-trip | **+1** |
+
+#### A typical example
+
+Say you ask: *"Fix the bug in the login page"*
+
+Claude might:
+1. **Call 1** — Reads your message, decides it needs to find the login file
+2. **Call 2** — Uses Grep to search for "login" across the codebase, gets results
+3. **Call 3** — Reads `login.tsx` to understand the code
+4. **Call 4** — Reads a related file `auth.ts` for context
+5. **Call 5** — Edits `login.tsx` with the fix
+6. **Call 6** — Runs `npm test` to verify the fix works
+7. **Call 7** — Reads the test output and responds to you with a summary
+
+That's **7 API calls from a single message**. Each call sends the growing conversation context (including all previous tool results) back to Claude, which is why cache read tokens accumulate so fast.
+
+#### Why the number might seem high
+
+| Scenario | Typical API Calls |
+|---|---|
+| Simple question ("what does this function do?") | 1-3 |
+| Bug fix with file edits | 5-15 |
+| New feature implementation | 20-50+ |
+| Large refactoring across multiple files | 50-100+ |
+| Full day of active Claude Code use | 200-500+ |
+
+Over weeks of use, thousands of API calls is completely normal.
+
+#### How this app counts API calls
+
+The app counts every `"type": "assistant"` message in the JSONL session files that includes a `usage` block. Each of these represents one round-trip to the Claude API — one request sent, one response received.
+
+```
+API Calls = number of assistant messages with usage data across all sessions
+```
+
 ### Cost Calculation
 
 #### What does "Est. Cost" mean?
