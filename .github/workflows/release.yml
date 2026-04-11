@@ -1,0 +1,183 @@
+name: CI and Release
+
+# Triggers:
+#   * push to master — runs build + tests; if green, auto-cuts a new release
+#     and bumps the README download link.
+#   * workflow_dispatch — lets a human trigger the full pipeline manually
+#     from the Actions tab.
+#
+# The workflow ignores pushes that only change .md files. This breaks the
+# otherwise-infinite loop where the workflow itself commits a README bump
+# (which would re-trigger the workflow, which would bump the README again,
+# etc.). A mixed code+docs commit still triggers the workflow normally;
+# only pure-docs commits are ignored.
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+# Serialize runs against master so two concurrent pushes can't race on the
+# same release tag. `cancel-in-progress: false` means we queue instead of
+# abandoning an in-flight build.
+concurrency:
+  group: release-master
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # needed to create releases and push the README bump
+
+jobs:
+  build-test-release:
+    # WinForms targets net10.0-windows and requires the Windows desktop
+    # runtime — it cannot build on ubuntu runners.
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so we can push a commit back to master at the end.
+          fetch-depth: 0
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore ClaudeUsage.sln
+
+      - name: Build
+        run: dotnet build ClaudeUsage.sln -c Release --no-restore
+
+      # --- Test gate --------------------------------------------------
+      # If any test fails, the workflow fails here. All subsequent steps
+      # (publish / release / README bump) are skipped because they have
+      # implicit `if: success()` semantics. That is the "release only when
+      # tests are green" requirement.
+      - name: Test
+        run: dotnet test ClaudeUsage.sln -c Release --no-build --nologo --verbosity normal
+
+      # --- Version computation ---------------------------------------
+      # Read the latest existing release tag and bump its patch number.
+      # First run after v1.0.3 produces v1.0.4; subsequent runs continue
+      # the v1.0.x sequence. If a human manually cuts v1.2.0 later, the
+      # next CI run picks that up and bumps to v1.2.1.
+      - name: Compute next version
+        id: version
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Fetch the most recent *stable* release (not draft, not
+          # pre-release) and use its tag as the base for the next version.
+          # Empty repo fallback: v0.0.0 → first auto-release is v0.0.1.
+          # This repo already has v1.0.3 so the first run computes v1.0.4.
+          $latest = gh release list --limit 10 --json tagName,isDraft,isPrerelease `
+                    --jq '[.[] | select(.isDraft == false and .isPrerelease == false)] | .[0].tagName // "v0.0.0"'
+          if (-not $latest) { $latest = "v0.0.0" }
+
+          if ($latest -match '^v(\d+)\.(\d+)\.(\d+)$') {
+            $major = [int]$matches[1]
+            $minor = [int]$matches[2]
+            $patch = [int]$matches[3] + 1
+            $version = "v$major.$minor.$patch"
+          } else {
+            Write-Error "Latest release tag '$latest' does not match vMAJOR.MINOR.PATCH — cannot auto-bump. Cut a manual release that matches the convention and re-run."
+            exit 1
+          }
+
+          echo "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Previous release: $latest"
+          Write-Host "Next release:     $version"
+
+      # --- Publish ---------------------------------------------------
+      # Self-contained, single-file, compressed, no PDB — matches the
+      # manual v1.0.3 release convention.
+      - name: Publish (win-x64 self-contained)
+        run: >
+          dotnet publish ClaudeUsageMonitor.csproj -c Release -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=none
+          -p:DebugSymbols=false
+          -o publish/staging
+
+      - name: Package zip
+        id: package
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $zipName = "ClaudeUsageMonitor-$version-win-x64.zip"
+          Compress-Archive -Path publish/staging/* -DestinationPath $zipName -Force
+          $size = (Get-Item $zipName).Length
+          echo "zip=$zipName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Created $zipName ($([math]::Round($size/1MB,2)) MB)"
+
+      # --- Release creation ------------------------------------------
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $zip = "${{ steps.package.outputs.zip }}"
+          # Use a single-quoted here-string so PowerShell doesn't try to
+          # expand anything, then do explicit replacements. This avoids
+          # backtick/escape ambiguity around markdown code spans.
+          $notes = @'
+          Automated release built from commit __SHA__.
+
+          ## Install
+          1. Download __ZIP__ below.
+          2. Extract the zip.
+          3. Double-click ClaudeUsageMonitor.exe.
+
+          Self-contained — no .NET installation required.
+
+          **Full changelog:** https://github.com/__REPO__/commits/__VERSION__
+          '@
+          $notes = $notes.Replace('__SHA__', '${{ github.sha }}').Replace('__ZIP__', $zip).Replace('__REPO__', '${{ github.repository }}').Replace('__VERSION__', $version)
+          gh release create $version $zip `
+            --target ${{ github.sha }} `
+            --title "$version" `
+            --notes $notes
+
+      # --- README download link bump ---------------------------------
+      # Replaces every `vMAJOR.MINOR.PATCH` token in README.md with the new
+      # version. Currently the README only contains such tokens on the
+      # download-link line (display text + URL halves, three occurrences
+      # on that one line), so the broad regex is safe. If you ever add
+      # other semver-looking strings to README.md, narrow this regex.
+      #
+      # Infinite-loop prevention: the commit pushed here would normally
+      # retrigger the workflow, but `paths-ignore: '**.md'` at the top of
+      # this file skips runs where every changed path is a markdown file.
+      # `[skip ci]` in the commit message is decorative (GitHub Actions
+      # doesn't honor it natively — `paths-ignore` is what actually works).
+      - name: Update README download link
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $readme = Get-Content README.md -Raw
+          $updated = $readme -replace 'v\d+\.\d+\.\d+', $version
+          if ($updated -eq $readme) {
+            Write-Host "README already references $version — nothing to commit"
+            exit 0
+          }
+
+          Set-Content -Path README.md -Value $updated -NoNewline
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "docs: bump README download link to $version [skip ci]"
+
+          # Rebase on top of any concurrent pushes to master before pushing
+          # our commit back. The `paths-ignore: **.md` on the `push` trigger
+          # means this commit won't re-enter the workflow.
+          git pull --rebase origin master
+          git push origin HEAD:master
+          Write-Host "README bumped to $version"
