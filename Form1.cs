@@ -7,6 +7,7 @@ using LiveChartsCore.SkiaSharpView.Painting;
 using LiveChartsCore.SkiaSharpView.VisualElements;
 using LiveChartsCore.SkiaSharpView.WinForms;
 using SkiaSharp;
+using Align = LiveChartsCore.Drawing.Align;
 
 namespace ClaudeUsageMonitor;
 
@@ -133,7 +134,7 @@ public partial class Form1 : Form
 
         _nudRefreshInterval = new NumericUpDown
         {
-            Minimum = 10,
+            Minimum = 5,
             Maximum = 3600,
             Value = 60,
             Location = new Point(590, 9),
@@ -509,7 +510,9 @@ public partial class Form1 : Form
         {
             Text = "Daily Cost",
             TextSize = 16,
-            Paint = new SolidColorPaint(new SKColor(220, 220, 220))
+            Paint = new SolidColorPaint(new SKColor(220, 220, 220)),
+            HorizontalAlign = Align.Start,
+            VerticalAlign = Align.Start
         });
     }
 
@@ -572,7 +575,9 @@ public partial class Form1 : Form
         {
             Text = "Daily Token Usage",
             TextSize = 16,
-            Paint = new SolidColorPaint(new SKColor(220, 220, 220))
+            Paint = new SolidColorPaint(new SKColor(220, 220, 220)),
+            HorizontalAlign = Align.Start,
+            VerticalAlign = Align.Start
         });
     }
 
@@ -607,7 +612,9 @@ public partial class Form1 : Form
         {
             Text = "Cost by Model",
             TextSize = 16,
-            Paint = new SolidColorPaint(new SKColor(220, 220, 220))
+            Paint = new SolidColorPaint(new SKColor(220, 220, 220)),
+            HorizontalAlign = Align.Start,
+            VerticalAlign = Align.Start
         });
     }
 
