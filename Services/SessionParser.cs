@@ -1,5 +1,8 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using ClaudeUsageMonitor.Models;
+
+[assembly: InternalsVisibleTo("ClaudeUsageMonitor.Tests")]
 
 namespace ClaudeUsageMonitor.Services;
 
@@ -61,7 +64,7 @@ public class SessionParser
         }
     }
 
-    private UsageRecord? ParseLine(string line, string sessionId, string projectName)
+    internal UsageRecord? ParseLine(string line, string sessionId, string projectName)
     {
         using var doc = JsonDocument.Parse(line);
         var root = doc.RootElement;
@@ -111,7 +114,7 @@ public class SessionParser
         };
     }
 
-    private static string FormatProjectName(string raw)
+    internal static string FormatProjectName(string raw)
     {
         // Convert "D--PVR-Birch" to "D:\PVR\Birch"
         if (raw.Length >= 2 && raw[1] == '-' && raw[2] == '-')
