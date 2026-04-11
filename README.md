@@ -45,10 +45,10 @@ The app runs in the system tray, auto-refreshes, and can optionally start with W
 | Requirement | Version |
 |---|---|
 | **Windows** | 10 or later |
-| **.NET SDK** | [10.0](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) (preview) |
+| **.NET SDK** | [10.0](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) (LTS) |
 | **Claude Code** | Any version — just needs `~/.claude/projects/` with session files |
 
-> **Note:** .NET 10 is currently in preview. You can switch to .NET 9 by changing `net10.0-windows` to `net9.0-windows` in the `.csproj` file.
+> **Note:** .NET 10 is a Long-Term Support (LTS) release (released November 11, 2025). If you prefer to build against .NET 9, change `net10.0-windows` to `net9.0-windows` in the `.csproj` file.
 
 ---
 
