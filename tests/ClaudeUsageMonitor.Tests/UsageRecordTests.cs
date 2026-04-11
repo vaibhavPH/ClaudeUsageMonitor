@@ -212,4 +212,122 @@ public class UsageRecordTests
 
         Assert.True(haiku.EstimatedCostUsd < sonnet.EstimatedCostUsd);
     }
+
+    // --- EstimatedCostUsd: model-matching is case-sensitive --------------
+    //
+    // CalculateCost() uses `m.Contains("opus")` etc. — lowercase, case-sensitive.
+    // These tests pin that behavior so a future refactor (e.g. switching to
+    // StringComparison.OrdinalIgnoreCase) is an intentional decision, not a
+    // silent regression.
+
+    [Theory]
+    [InlineData("claude-Opus-4-6")]
+    [InlineData("CLAUDE-OPUS-4-6")]
+    [InlineData("Claude-Sonnet-4-6")]
+    [InlineData("claude-Haiku-4-5")]
+    public void EstimatedCost_MatchingIsCaseSensitive_MixedCaseFallsBackToSonnet(string mixedCaseModel)
+    {
+        // 1M input tokens: Sonnet price = $3, Opus = $15, Haiku = $0.80
+        // If the match were case-insensitive, mixed-case names would pick
+        // the real tier and the cost would not equal $3.
+        var record = new UsageRecord
+        {
+            Model = mixedCaseModel,
+            InputTokens = 1_000_000
+        };
+
+        Assert.Equal(3m, record.EstimatedCostUsd);
+    }
+
+    // --- EstimatedCostUsd: switch precedence -----------------------------
+    //
+    // The switch order is opus → sonnet → haiku → default. A contrived model
+    // string containing multiple keywords must resolve to the first match.
+
+    [Fact]
+    public void EstimatedCost_ModelWithBothOpusAndHaiku_UsesOpusPricing()
+    {
+        var record = new UsageRecord
+        {
+            Model = "opus-haiku-eval",
+            InputTokens = 1_000_000
+        };
+
+        // Opus input = $15/M; Haiku input = $0.80/M
+        Assert.Equal(15m, record.EstimatedCostUsd);
+    }
+
+    [Fact]
+    public void EstimatedCost_ModelWithBothSonnetAndHaiku_UsesSonnetPricing()
+    {
+        var record = new UsageRecord
+        {
+            Model = "sonnet-haiku-bench",
+            InputTokens = 1_000_000
+        };
+
+        // Sonnet input = $3/M; Haiku input = $0.80/M
+        Assert.Equal(3m, record.EstimatedCostUsd);
+    }
+
+    // --- EstimatedCostUsd: per-component isolation -----------------------
+    //
+    // Each pricing tier has four coefficients (input / output / cacheCreate /
+    // cacheRead). Previous tests either use one component or all four equally
+    // — a typo in just one coefficient would slip through. This parametric
+    // theory isolates each component for each tier so a regression on any
+    // single coefficient fails loudly with a specific name.
+
+    [Theory]
+    // Opus: $15 / $75 / $18.75 / $1.50 per 1M
+    [InlineData("claude-opus-4-6",    1_000_000, 0,         0,         0,          15.00)]
+    [InlineData("claude-opus-4-6",    0,         1_000_000, 0,         0,          75.00)]
+    [InlineData("claude-opus-4-6",    0,         0,         1_000_000, 0,          18.75)]
+    [InlineData("claude-opus-4-6",    0,         0,         0,         1_000_000,   1.50)]
+    // Sonnet: $3 / $15 / $3.75 / $0.30 per 1M
+    [InlineData("claude-sonnet-4-6",  1_000_000, 0,         0,         0,           3.00)]
+    [InlineData("claude-sonnet-4-6",  0,         1_000_000, 0,         0,          15.00)]
+    [InlineData("claude-sonnet-4-6",  0,         0,         1_000_000, 0,           3.75)]
+    [InlineData("claude-sonnet-4-6",  0,         0,         0,         1_000_000,   0.30)]
+    // Haiku: $0.80 / $4 / $1 / $0.08 per 1M
+    [InlineData("claude-haiku-4-5",   1_000_000, 0,         0,         0,           0.80)]
+    [InlineData("claude-haiku-4-5",   0,         1_000_000, 0,         0,           4.00)]
+    [InlineData("claude-haiku-4-5",   0,         0,         1_000_000, 0,           1.00)]
+    [InlineData("claude-haiku-4-5",   0,         0,         0,         1_000_000,   0.08)]
+    public void EstimatedCost_PerComponent_PerTier(
+        string model, int input, int output, int cacheCreate, int cacheRead, double expectedUsd)
+    {
+        var record = new UsageRecord
+        {
+            Model = model,
+            InputTokens = input,
+            OutputTokens = output,
+            CacheCreationTokens = cacheCreate,
+            CacheReadTokens = cacheRead
+        };
+
+        Assert.Equal((decimal)expectedUsd, record.EstimatedCostUsd);
+    }
+
+    // --- EstimatedCostUsd: large-number sanity ---------------------------
+    //
+    // decimal has ample precision for these magnitudes, but this guards
+    // against any future refactor accidentally routing the math through
+    // int/long intermediates.
+
+    [Fact]
+    public void EstimatedCost_LargeTokenCounts_ProducesExpectedDecimalPrecision()
+    {
+        var record = new UsageRecord
+        {
+            Model = "claude-sonnet-4-6",
+            InputTokens = int.MaxValue,  // ~2.147 B
+            OutputTokens = int.MaxValue
+        };
+
+        // Expected: 2_147_483_647 × ($3 + $15) / 1_000_000
+        //         = 2_147_483_647 × 18 / 1_000_000
+        //         = 38_654.705646
+        Assert.Equal(38_654.705646m, record.EstimatedCostUsd);
+    }
 }
