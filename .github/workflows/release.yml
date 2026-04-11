@@ -94,13 +94,22 @@ jobs:
           Write-Host "Next release:     $version"
 
       # --- Publish ---------------------------------------------------
-      # Self-contained, single-file, compressed, no PDB — matches the
-      # manual v1.0.3 release convention.
-      - name: Publish (win-x64 self-contained)
+      # Self-contained, single-file, compressed, no PDB.
+      #
+      # IncludeNativeLibrariesForSelfExtract=true folds the native
+      # dependencies (libSkiaSharp.dll, libHarfBuzzSharp.dll from
+      # SkiaSharp) into the bootstrap exe so the extracted zip contains
+      # ONE file instead of exe + loose DLLs. At first launch, the
+      # bootstrap extracts the native libs to a per-user cache under
+      # %TEMP%\.net\ClaudeUsageMonitor\<hash>\ and loads them from
+      # there; subsequent launches reuse the cache, so the startup
+      # cost is paid once per version.
+      - name: Publish (win-x64 self-contained, single file)
         run: >
           dotnet publish ClaudeUsageMonitor.csproj -c Release -r win-x64
           --self-contained true
           -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
           -p:EnableCompressionInSingleFile=true
           -p:DebugType=none
           -p:DebugSymbols=false
