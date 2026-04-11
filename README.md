@@ -12,7 +12,7 @@ A Windows desktop dashboard that tracks your [Claude Code](https://docs.anthropi
 
 **Don't want to build from source?** Download the pre-built executable — no .NET installation needed:
 
-[**Download ClaudeUsageMonitor v1.0.4 (Windows x64)**](https://github.com/vaibhavPH/ClaudeUsageMonitor/releases/download/v1.0.4/ClaudeUsageMonitor-v1.0.4-win-x64.zip)
+[**Download ClaudeUsageMonitor v1.0.5 (Windows x64)**](https://github.com/vaibhavPH/ClaudeUsageMonitor/releases/download/v1.0.5/ClaudeUsageMonitor-v1.0.5-win-x64.zip)
 
 1. Download and extract the zip
 2. Double-click `ClaudeUsageMonitor.exe`
