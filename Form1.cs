@@ -2,6 +2,7 @@ using ClaudeUsageMonitor.Models;
 using ClaudeUsageMonitor.Services;
 using LiveChartsCore;
 using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Drawing.Geometries;
 using LiveChartsCore.SkiaSharpView.Painting;
 using LiveChartsCore.SkiaSharpView.VisualElements;
 using LiveChartsCore.SkiaSharpView.WinForms;
@@ -504,12 +505,12 @@ public partial class Form1 : Form
             }
         };
 
-        _dailyCostChart.Title = new LabelVisual
+        _dailyCostChart.Title = new DrawnLabelVisual(new LabelGeometry
         {
             Text = "Daily Cost",
             TextSize = 16,
             Paint = new SolidColorPaint(new SKColor(220, 220, 220))
-        };
+        });
     }
 
     private void UpdateTokenChart(List<UsageRecord> records)
@@ -567,12 +568,12 @@ public partial class Form1 : Form
             }
         };
 
-        _tokenChart.Title = new LabelVisual
+        _tokenChart.Title = new DrawnLabelVisual(new LabelGeometry
         {
             Text = "Daily Token Usage",
             TextSize = 16,
             Paint = new SolidColorPaint(new SKColor(220, 220, 220))
-        };
+        });
     }
 
     private void UpdateModelPieChart(List<UsageRecord> records)
@@ -602,12 +603,12 @@ public partial class Form1 : Form
                 DataLabelsPaint = new SolidColorPaint(new SKColor(220, 220, 220))
             } as ISeries).ToArray();
 
-        _modelPieChart.Title = new LabelVisual
+        _modelPieChart.Title = new DrawnLabelVisual(new LabelGeometry
         {
             Text = "Cost by Model",
             TextSize = 16,
             Paint = new SolidColorPaint(new SKColor(220, 220, 220))
-        };
+        });
     }
 
     private void UpdateSessionGrid(List<UsageRecord> records)
