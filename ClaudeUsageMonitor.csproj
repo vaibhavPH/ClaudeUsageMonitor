@@ -9,6 +9,7 @@
 <AssemblyName>ClaudeUsageMonitor</AssemblyName>
     <RootNamespace>ClaudeUsageMonitor</RootNamespace>
     <ApplicationIcon>app.ico</ApplicationIcon>
+    <DefaultItemExcludes>$(DefaultItemExcludes);tests/**;publish/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
